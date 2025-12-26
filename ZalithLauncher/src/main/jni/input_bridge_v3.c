@@ -136,13 +136,13 @@ void handleFramebufferSizeJava(long window, int w, int h) {
 }
 
 void updateGamepadStateJava(int jid, int button, jboolean pressed) {
-    printf("[GAMEPAD] Processing button event: jid=%d, button=%d, pressed=%d\n", jid, button, pressed);
+    // printf("[GAMEPAD] Processing button event: jid=%d, button=%d, pressed=%d\n", jid, button, pressed);
     (*pojav_environ->runtimeJNIEnvPtr_JRE)->CallStaticVoidMethod(pojav_environ->runtimeJNIEnvPtr_JRE, pojav_environ->vmGlfwClass, pojav_environ->method_internalUpdateGamepadButton, jid, button, pressed);
 }
 void updateGamepadAxisJava(int jid, int axis, float value) {
     // Only log non-zero values to avoid spam
-    if (value > 0.01f || value < -0.01f)
-        printf("[GAMEPAD] Processing axis event: jid=%d, axis=%d, value=%.3f\n", jid, axis, value);
+    // if (value > 0.01f || value < -0.01f)
+    //     printf("[GAMEPAD] Processing axis event: jid=%d, axis=%d, value=%.3f\n", jid, axis, value);
     (*pojav_environ->runtimeJNIEnvPtr_JRE)->CallStaticVoidMethod(pojav_environ->runtimeJNIEnvPtr_JRE, pojav_environ->vmGlfwClass, pojav_environ->method_internalUpdateGamepadAxis, jid, axis, value);
 }
 void setGamepadPresentJava(int jid, jboolean present) {
@@ -543,7 +543,7 @@ void noncritical_send_scroll(__attribute__((unused)) JNIEnv* env, __attribute__(
 void critical_send_gamepad_button(jint jid, jint button, jint action) {
     if (pojav_environ->isInputReady) {
         if (pojav_environ->isUseStackQueueCall) {
-            printf("[GAMEPAD] Sending button event: jid=%d, button=%d, action=%d\n", jid, button, action);
+            // printf("[GAMEPAD] Sending button event: jid=%d, button=%d, action=%d\n", jid, button, action);
             sendData(EVENT_TYPE_GAMEPAD_BUTTON, jid, button, action, 0);
         }
         // Note: Direct callback invocation would go here when LWJGL callbacks are available
@@ -558,9 +558,9 @@ void critical_send_gamepad_axis(jint jid, jint axis, jfloat value) {
     if (pojav_environ->isInputReady) {
         if (pojav_environ->isUseStackQueueCall) {
             // Only log non-zero values to avoid spam from idle joysticks
-            if (value > 0.01f || value < -0.01f) {
-                printf("[GAMEPAD] Sending axis event: jid=%d, axis=%d, value=%.3f\n", jid, axis, value);
-            }
+            // if (value > 0.01f || value < -0.01f) {
+            //     printf("[GAMEPAD] Sending axis event: jid=%d, axis=%d, value=%.3f\n", jid, axis, value);
+            // }
             // Pack float as int for event queue
             sendData(EVENT_TYPE_GAMEPAD_AXIS, jid, axis, *(jint*)&value, 0);
         }
@@ -575,7 +575,7 @@ void noncritical_send_gamepad_axis(__attribute__((unused)) JNIEnv* env, __attrib
 void noncritical_send_gamepad_connected(__attribute__((unused)) JNIEnv* env, __attribute__((unused)) jclass clazz, jint jid, jstring name, jint buttons, jint axes) {
     if (pojav_environ->isInputReady) {
         const char* nameStr = (*env)->GetStringUTFChars(env, name, NULL);
-        printf("[GAMEPAD] Controller connected: jid=%d, name=%s, buttons=%d, axes=%d\n", jid, nameStr, buttons, axes);
+        // printf("[GAMEPAD] Controller connected: jid=%d, name=%s, buttons=%d, axes=%d\n", jid, nameStr, buttons, axes);
         
         // Store controller info in registry
         if (jid >= 0 && jid < MAX_JOYSTICKS) {
@@ -585,9 +585,9 @@ void noncritical_send_gamepad_connected(__attribute__((unused)) JNIEnv* env, __a
             joystickRegistry[jid].buttonCount = buttons;
             joystickRegistry[jid].axisCount = axes;
             joystickRegistry[jid].isPresent = 1;
-            printf("[GAMEPAD] Registered in joystick registry: jid=%d, name=%s\n", jid, joystickRegistry[jid].name);
+            // printf("[GAMEPAD] Registered in joystick registry: jid=%d, name=%s\n", jid, joystickRegistry[jid].name);
         } else {
-            printf("[GAMEPAD] WARNING: Invalid jid=%d, max is %d\n", jid, MAX_JOYSTICKS - 1);
+            // printf("[GAMEPAD] WARNING: Invalid jid=%d, max is %d\n", jid, MAX_JOYSTICKS - 1);
         }
         
         (*env)->ReleaseStringUTFChars(env, name, nameStr);
@@ -604,7 +604,7 @@ void critical_send_gamepad_disconnected(jint jid) {
         if (jid >= 0 && jid < MAX_JOYSTICKS) {
             joystickRegistry[jid].isPresent = 0;
             joystickRegistry[jid].name[0] = '\0';
-            printf("[GAMEPAD] Unregistered from joystick registry: jid=%d\n", jid);
+            // printf("[GAMEPAD] Unregistered from joystick registry: jid=%d\n", jid);
         }
         
         if (pojav_environ->isUseStackQueueCall) {
@@ -620,10 +620,10 @@ void noncritical_send_gamepad_disconnected(__attribute__((unused)) JNIEnv* env, 
 // JNI function to query joystick name from registry
 JNIEXPORT jstring JNICALL Java_org_lwjgl_glfw_GLFW_nativeGetJoystickName(JNIEnv* env, __attribute__((unused)) jclass clazz, jint jid) {
     if (jid >= 0 && jid < MAX_JOYSTICKS && joystickRegistry[jid].isPresent) {
-        printf("[GAMEPAD] Query joystick name: jid=%d, name=%s\n", jid, joystickRegistry[jid].name);
+        // printf("[GAMEPAD] Query joystick name: jid=%d, name=%s\n", jid, joystickRegistry[jid].name);
         return (*env)->NewStringUTF(env, joystickRegistry[jid].name);
     }
-    printf("[GAMEPAD] Query joystick name: jid=%d not found in registry\n", jid);
+    // printf("[GAMEPAD] Query joystick name: jid=%d not found in registry\n", jid);
     return NULL;
 }
 

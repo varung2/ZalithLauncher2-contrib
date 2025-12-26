@@ -247,7 +247,7 @@ class GamepadViewModel() : ViewModel() {
     fun registerDeviceName(deviceId: String, deviceName: String) {
         if (!deviceIdToName.containsKey(deviceId)) {
             deviceIdToName[deviceId] = deviceName
-            Logger.lDebug("[GAMEPAD_KT] Registered device name (hot-plug): deviceId=$deviceId, name=$deviceName")
+            // Logger.lDebug("[GAMEPAD_KT] Registered device name (hot-plug): deviceId=$deviceId, name=$deviceName")
             
             // Also register in native layer if not already tracked
             // This handles hot-plugged controllers that were connected AFTER enumeration
@@ -258,7 +258,7 @@ class GamepadViewModel() : ViewModel() {
                 CallbackBridge.sendGamepadConnected(jid, deviceName, 15, 6)
                 setActiveProfile(deviceId, deviceName)
                 
-                Logger.lDebug("[GAMEPAD_KT] Hot-plugged controller registered in native: deviceId=$deviceId, name=$deviceName, jid=$jid")
+                // Logger.lDebug("[GAMEPAD_KT] Hot-plugged controller registered in native: deviceId=$deviceId, name=$deviceName, jid=$jid")
             }
         }
         // If already registered, do nothing (avoids redundant logging and map updates)
@@ -281,7 +281,7 @@ class GamepadViewModel() : ViewModel() {
             // Load or create profile for this device
             setActiveProfile(deviceId, deviceName)
             
-            Logger.lDebug("[GAMEPAD_KT] Registered new controller: deviceId=$deviceId, name=$deviceName, jid=$id")
+            // Logger.lDebug("[GAMEPAD_KT] Registered new controller: deviceId=$deviceId, name=$deviceName, jid=$id")
             
             id
         }
@@ -404,7 +404,7 @@ class GamepadViewModel() : ViewModel() {
             val deviceName = getDeviceName(deviceId)
             CallbackBridge.sendGamepadConnected(id, deviceName, 15, 6)
             setActiveProfile(deviceId, deviceName)
-            Logger.lDebug("[GAMEPAD_KT] Registered new controller: deviceId=$deviceId, name=$deviceName, jid=$id")
+            // Logger.lDebug("[GAMEPAD_KT] Registered new controller: deviceId=$deviceId, name=$deviceName, jid=$id")
             id
         }
     }
@@ -414,7 +414,7 @@ class GamepadViewModel() : ViewModel() {
      * This ensures controllers are registered BEFORE Minecraft queries for joystick names.
      */
     fun enumerateAndRegisterControllers() {
-        Logger.lDebug("[GAMEPAD_KT] Enumerating all connected controllers...")
+        // Logger.lDebug("[GAMEPAD_KT] Enumerating all connected controllers...")
         
         val deviceIds = InputDevice.getDeviceIds()
         var registeredCount = 0
@@ -433,7 +433,7 @@ class GamepadViewModel() : ViewModel() {
             val deviceDescriptor = device.descriptor
             val deviceName = device.name ?: "Unknown Controller"
             
-            Logger.lDebug("[GAMEPAD_KT] Found gamepad: descriptor=$deviceDescriptor, name=$deviceName, id=${device.id}")
+            // Logger.lDebug("[GAMEPAD_KT] Found gamepad: descriptor=$deviceDescriptor, name=$deviceName, id=${device.id}")
             
             // Store device name
             deviceIdToName[deviceDescriptor] = deviceName
@@ -449,17 +449,17 @@ class GamepadViewModel() : ViewModel() {
                 // Load or create profile
                 setActiveProfile(deviceDescriptor, deviceName)
                 
-                Logger.lDebug("[GAMEPAD_KT] Registered controller during enumeration: descriptor=$deviceDescriptor, name=$deviceName, jid=$jid")
+                // Logger.lDebug("[GAMEPAD_KT] Registered controller during enumeration: descriptor=$deviceDescriptor, name=$deviceName, jid=$jid")
                 registeredCount++
             } else {
                 // Already tracked - just re-register in native to ensure consistency
                 val jid = deviceIdToJoystickId[deviceDescriptor]!!
                 CallbackBridge.sendGamepadConnected(jid, deviceName, 15, 6)
-                Logger.lDebug("[GAMEPAD_KT] Re-registered existing controller: descriptor=$deviceDescriptor, name=$deviceName, jid=$jid")
+                // Logger.lDebug("[GAMEPAD_KT] Re-registered existing controller: descriptor=$deviceDescriptor, name=$deviceName, jid=$jid")
             }
         }
         
-        Logger.lDebug("[GAMEPAD_KT] Controller enumeration complete. New registrations: $registeredCount, Total tracked: ${deviceIdToJoystickId.size}")
+        // Logger.lDebug("[GAMEPAD_KT] Controller enumeration complete. New registrations: $registeredCount, Total tracked: ${deviceIdToJoystickId.size}")
     }
     
     private fun registerConnectedControllers() {

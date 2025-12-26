@@ -100,7 +100,7 @@ fun SimpleGamepadCapture(
                     event.device?.name?.let { realDeviceName ->
                         gamepadViewModel.registerDeviceName(deviceName, realDeviceName)
                         registeredDevices.add(deviceName)
-                        android.util.Log.d("GAMEPAD_RAW", "Fallback registration: deviceName=$deviceName -> $realDeviceName")
+                        // android.util.Log.d("GAMEPAD_RAW", "Fallback registration: deviceName=$deviceName -> $realDeviceName")
                     }
                 }
                 
@@ -142,7 +142,7 @@ fun SimpleGamepadCapture(
                         keyEvent.device?.name?.let { realDeviceName ->
                             gamepadViewModel.registerDeviceName(deviceName, realDeviceName)
                             registeredDevices.add(deviceName)
-                            android.util.Log.d("GAMEPAD_RAW", "Fallback registration: deviceName=$deviceName -> $realDeviceName")
+                            // android.util.Log.d("GAMEPAD_RAW", "Fallback registration: deviceName=$deviceName -> $realDeviceName")
                         }
                     }
                     
@@ -468,7 +468,7 @@ fun KeyEvent.isGamepadKeyEvent(): Boolean {
     val result = isGamepad || isDpad
     
     // if (keyCode in 96..110) { // BUTTON_A to BUTTON_MODE range
-        android.util.Log.d("GAMEPAD_CHECK", "isGamepadKeyEvent: keyCode=$keyCode, isGamepad=$isGamepad, isDpad=$isDpad, result=$result, source=${source}, device=${device?.name}")
+    //     android.util.Log.d("GAMEPAD_CHECK", "isGamepadKeyEvent: keyCode=$keyCode, isGamepad=$isGamepad, isDpad=$isDpad, result=$result, source=${source}, device=${device?.name}")
     // }
 
     return result
@@ -499,14 +499,14 @@ private fun handleNativeMotionInput(
     gamepadViewModel: GamepadViewModel,
     deviceId: String
 ) {
-    android.util.Log.d("GAMEPAD_NATIVE", "handleNativeMotionInput called, deviceId=$deviceId")
+    // android.util.Log.d("GAMEPAD_NATIVE", "handleNativeMotionInput called, deviceId=$deviceId")
     
     if (!event.isJoystickMoving()) {
-        android.util.Log.d("GAMEPAD_NATIVE", "Not a joystick moving event, returning")
+        // android.util.Log.d("GAMEPAD_NATIVE", "Not a joystick moving event, returning")
         return
     }
     
-    android.util.Log.d("GAMEPAD_NATIVE", "Processing joystick axes")
+    // android.util.Log.d("GAMEPAD_NATIVE", "Processing joystick axes")
     
     // Send all axes directly to native gamepad
     val axes = listOf(
@@ -523,7 +523,7 @@ private fun handleNativeMotionInput(
     axes.forEach { (androidAxis, standardAxis) ->
         val value = event.getAxisValue(androidAxis)
         if (kotlin.math.abs(value) > 0.01f) {
-            android.util.Log.d("GAMEPAD_NATIVE", "Calling updateAxisNative: axis=$standardAxis, value=$value")
+            // android.util.Log.d("GAMEPAD_NATIVE", "Calling updateAxisNative: axis=$standardAxis, value=$value")
         }
         gamepadViewModel.updateAxisNative(deviceId, standardAxis, value)
     }
@@ -537,18 +537,18 @@ private fun handleNativeKeyInput(
     gamepadViewModel: GamepadViewModel,
     deviceId: String
 ) {
-    android.util.Log.d("GAMEPAD_NATIVE", "handleNativeKeyInput called, keyCode=${event.keyCode}, deviceId=$deviceId")
+    // android.util.Log.d("GAMEPAD_NATIVE", "handleNativeKeyInput called, keyCode=${event.keyCode}, deviceId=$deviceId")
     
     if (!event.isGamepadKeyEvent()) {
-        android.util.Log.d("GAMEPAD_NATIVE", "Not a gamepad key event, returning")
+        // android.util.Log.d("GAMEPAD_NATIVE", "Not a gamepad key event, returning")
         return
     }
     if (event.keyCode == KeyEvent.KEYCODE_UNKNOWN) {
-        android.util.Log.d("GAMEPAD_NATIVE", "Unknown keycode, returning")
+        // android.util.Log.d("GAMEPAD_NATIVE", "Unknown keycode, returning")
         return
     }
     if (event.repeatCount > 0) {
-        android.util.Log.d("GAMEPAD_NATIVE", "Repeat event, returning")
+        // android.util.Log.d("GAMEPAD_NATIVE", "Repeat event, returning")
         return
     }
     
@@ -572,12 +572,12 @@ private fun handleNativeKeyInput(
         KeyEvent.KEYCODE_DPAD_LEFT -> KeyEvent.KEYCODE_DPAD_LEFT
         KeyEvent.KEYCODE_DPAD_RIGHT -> KeyEvent.KEYCODE_DPAD_RIGHT
         else -> {
-            android.util.Log.d("GAMEPAD_NATIVE", "Unmapped keyCode=${event.keyCode}, returning")
+            // android.util.Log.d("GAMEPAD_NATIVE", "Unmapped keyCode=${event.keyCode}, returning")
             return
         }
     }
     
-    android.util.Log.d("GAMEPAD_NATIVE", "Calling updateButtonNative: buttonCode=$buttonCode, pressed=${event.action == KeyEvent.ACTION_DOWN}")
+    // android.util.Log.d("GAMEPAD_NATIVE", "Calling updateButtonNative: buttonCode=$buttonCode, pressed=${event.action == KeyEvent.ACTION_DOWN}")
     
     val pressed = event.action == KeyEvent.ACTION_DOWN
     gamepadViewModel.updateButtonNative(deviceId, buttonCode, pressed)

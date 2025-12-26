@@ -715,7 +715,7 @@ fun GameScreen(
 
             if (AllSettings.gamepadControl.state) {
                 //手柄事件捕获层
-                android.util.Log.d("GAMEPAD_INIT", "SimpleGamepadCapture initialized, native mode: ${AllSettings.gamepadNativeMode.state}")
+                // android.util.Log.d("GAMEPAD_INIT", "SimpleGamepadCapture initialized, native mode: ${AllSettings.gamepadNativeMode.state}")
                 SimpleGamepadCapture(
                     gamepadViewModel = gamepadViewModel
                 )
