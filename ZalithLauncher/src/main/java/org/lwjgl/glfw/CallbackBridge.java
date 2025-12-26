@@ -121,6 +121,24 @@ public class CallbackBridge {
         nativeSendScreenSize(w, h);
     }
 
+    // Gamepad/Controller support methods
+    public static void sendGamepadButton(int joystickId, int button, boolean pressed) {
+        nativeSendGamepadButton(joystickId, button, pressed ? 1 : 0);
+    }
+
+    public static void sendGamepadAxis(int joystickId, int axis, float value) {
+        nativeSendGamepadAxis(joystickId, axis, value);
+    }
+
+    public static void sendGamepadConnected(int joystickId, String name, int buttonCount, int axisCount) {
+        nativeSendGamepadConnected(joystickId, name, buttonCount, axisCount);
+    }
+
+    public static void sendGamepadDisconnected(int joystickId) {
+        nativeSendGamepadDisconnected(joystickId);
+    }
+
+
     public static boolean isGrabbing() {
         // Avoid going through the JNI each time.
         return isGrabbing;
@@ -268,6 +286,13 @@ public class CallbackBridge {
     @Keep @CriticalNative private static native void nativeSendScroll(double xoffset, double yoffset);
     @Keep @CriticalNative private static native void nativeSendScreenSize(int width, int height);
     @Keep public static native void nativeSetWindowAttrib(int attrib, int value);
+
+    // Gamepad native methods
+    @Keep @CriticalNative private static native void nativeSendGamepadButton(int jid, int button, int action);
+    @Keep @CriticalNative private static native void nativeSendGamepadAxis(int jid, int axis, float value);
+    @Keep private static native void nativeSendGamepadConnected(int jid, String name, int buttons, int axes);
+    @Keep @CriticalNative private static native void nativeSendGamepadDisconnected(int jid);
+
 
     static {
         System.loadLibrary("pojavexec");

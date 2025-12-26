@@ -37,6 +37,7 @@ import com.movtery.zalithlauncher.bridge.CURSOR_ENABLED
 import com.movtery.zalithlauncher.bridge.ZLBridgeStates
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.setting.enums.MouseControlMode
+import com.movtery.zalithlauncher.ui.control.gamepad.GamepadControlMode
 import com.movtery.zalithlauncher.ui.control.gamepad.GamepadStickCameraListener
 import com.movtery.zalithlauncher.utils.device.PhysicalMouseChecker
 import com.movtery.zalithlauncher.utils.file.ifExists
@@ -183,33 +184,39 @@ fun SwitchableMouseLayout(
         pointerPosition = pos
     }
 
+    // Check if native gamepad mode is active
+    val isNativeGamepadMode = gamepadViewModel?.controlMode == GamepadControlMode.NATIVE_GAMEPAD
+    
+    // Only handle joystick-to-mouse conversion in keyboard emulation mode
     gamepadViewModel?.let { viewModel ->
-        val isGrabbing = cursorMode == CURSOR_DISABLED
-        GamepadStickCameraListener(
-            gamepadViewModel = viewModel,
-            isGrabbing = isGrabbing,
-            onOffsetEvent = { offset ->
-                if (isGrabbing) {
-                    updateMousePointer(false)
-                    onCapturedMove(
-                        Offset(
-                            x = offset.x * gamepadCameraSpeedFactor,
-                            y = offset.y * gamepadCameraSpeedFactor
+        if (!isNativeGamepadMode) {
+            val isGrabbing = cursorMode == CURSOR_DISABLED
+            GamepadStickCameraListener(
+                gamepadViewModel = viewModel,
+                isGrabbing = isGrabbing,
+                onOffsetEvent = { offset ->
+                    if (isGrabbing) {
+                        updateMousePointer(false)
+                        onCapturedMove(
+                            Offset(
+                                x = offset.x * gamepadCameraSpeedFactor,
+                                y = offset.y * gamepadCameraSpeedFactor
+                            )
                         )
-                    )
-                } else {
-                    updateMousePointer(true)
-                    val newOffset = Offset(
-                        x = (pointerPosition.x + (offset.x * gamepadCursorSpeedFactor)).coerceIn(0f, screenWidth),
-                        y = (pointerPosition.y + (offset.y * gamepadCursorSpeedFactor)).coerceIn(0f, screenHeight)
-                    )
-                    pointerPosition = newOffset
-                    updatePointerPos(newOffset)
+                    } else {
+                        updateMousePointer(true)
+                        val newOffset = Offset(
+                            x = (pointerPosition.x + (offset.x * gamepadCursorSpeedFactor)).coerceIn(0f, screenWidth),
+                            y = (pointerPosition.y + (offset.y * gamepadCursorSpeedFactor)).coerceIn(0f, screenHeight)
+                        )
+                        pointerPosition = newOffset
+                        updatePointerPos(newOffset)
+                    }
                 }
-            }
-        )
+            )
+        }
     }
-
+    
     Box(modifier = modifier) {
         val cursorShape = ZLBridgeStates.cursorShape
 
@@ -226,116 +233,119 @@ fun SwitchableMouseLayout(
             )
         }
 
-        TouchpadLayout(
-            modifier = Modifier.fillMaxSize(),
-            controlMode = if (cursorMode == CURSOR_ENABLED) {
-                controlMode
-            } else {
-                //捕获模式下，只有滑动控制模式才能获取到滑动偏移量
-                MouseControlMode.SLIDE
-            },
-            enableMouseClick = enableMouseClick,
-            longPressTimeoutMillis = longPressTimeoutMillis,
-            requestPointerCapture = requestPointerCapture1,
-            pointerIcon = cursorShape.composeIcon,
-            onTouch = {
-                onTouch()
-                checkPhysicalMouseMode(false)
-            },
-            onMouse = {
-                onMouse()
-                checkPhysicalMouseMode(true)
-            },
-            onTap = { fingerPos ->
-                when (cursorMode) {
-                    CURSOR_DISABLED -> {
-                        onCapturedTap(fingerPos)
-                    }
-                    CURSOR_ENABLED -> {
-                        onTap(
-                            if (controlMode == MouseControlMode.CLICK) {
-                                updateMousePointer(!isCaptured && !hideMouseInClickMode)
-                                //当前手指的绝对坐标
-                                pointerPosition = fingerPos
-                                fingerPos
-                            } else {
-                                pointerPosition
-                            }
-                        )
-                    }
-                }
-            },
-            onLongPress = {
-                when (cursorMode) {
-                    CURSOR_DISABLED -> {
-                        onCapturedLongPress()
-                    }
-                    CURSOR_ENABLED -> {
-                        onLongPress()
-                    }
-                }
-            },
-            onLongPressEnd = {
-                when (cursorMode) {
-                    CURSOR_DISABLED -> {
-                        onCapturedLongPressEnd()
-                    }
-                    CURSOR_ENABLED -> {
-                        onLongPressEnd()
-                    }
-                }
-            },
-            onPointerMove = { offset ->
-                when (cursorMode) {
-                    CURSOR_DISABLED -> {
-                        updateMousePointer(false)
-                        onCapturedMove(offset)
-                    }
-                    CURSOR_ENABLED -> {
-                        pointerPosition = if (controlMode == MouseControlMode.SLIDE) {
-                            updateMousePointer(true)
-                            Offset(
-                                x = (pointerPosition.x + offset.x * speedFactor).coerceIn(0f, screenWidth),
-                                y = (pointerPosition.y + offset.y * speedFactor).coerceIn(0f, screenHeight)
-                            )
-                        } else {
-                            updateMousePointer(!hideMouseInClickMode)
-                            //当前手指的绝对坐标
-                            offset
+        // Only render TouchpadLayout if NOT in native gamepad mode
+        if (!isNativeGamepadMode) {
+            TouchpadLayout(
+                modifier = Modifier.fillMaxSize(),
+                controlMode = if (cursorMode == CURSOR_ENABLED) {
+                    controlMode
+                } else {
+                    //捕获模式下，只有滑动控制模式才能获取到滑动偏移量
+                    MouseControlMode.SLIDE
+                },
+                enableMouseClick = enableMouseClick,
+                longPressTimeoutMillis = longPressTimeoutMillis,
+                requestPointerCapture = requestPointerCapture1,
+                pointerIcon = cursorShape.composeIcon,
+                onTouch = {
+                    onTouch()
+                    checkPhysicalMouseMode(false)
+                },
+                onMouse = {
+                    onMouse()
+                    checkPhysicalMouseMode(true)
+                },
+                onTap = { fingerPos ->
+                    when (cursorMode) {
+                        CURSOR_DISABLED -> {
+                            onCapturedTap(fingerPos)
                         }
-                        updatePointerPos(pointerPosition)
-                    }
-                }
-            },
-            onMouseMove = { offset ->
-                when (cursorMode) {
-                    CURSOR_DISABLED -> {
-                        updateMousePointer(false)
-                        onCapturedMove(offset)
-                    }
-                    CURSOR_ENABLED -> {
-                        if (requestPointerCapture) {
-                            updateMousePointer(true)
-                            pointerPosition = Offset(
-                                x = (pointerPosition.x + offset.x * speedFactor).coerceIn(0f, screenWidth),
-                                y = (pointerPosition.y + offset.y * speedFactor).coerceIn(0f, screenHeight)
+                        CURSOR_ENABLED -> {
+                            onTap(
+                                if (controlMode == MouseControlMode.CLICK) {
+                                    updateMousePointer(!isCaptured && !hideMouseInClickMode)
+                                    //当前手指的绝对坐标
+                                    pointerPosition = fingerPos
+                                    fingerPos
+                                } else {
+                                    pointerPosition
+                                }
                             )
-                            updatePointerPos(pointerPosition)
-                        } else {
-                            //非鼠标抓取模式
+                        }
+                    }
+                },
+                onLongPress = {
+                    when (cursorMode) {
+                        CURSOR_DISABLED -> {
+                            onCapturedLongPress()
+                        }
+                        CURSOR_ENABLED -> {
+                            onLongPress()
+                        }
+                    }
+                },
+                onLongPressEnd = {
+                    when (cursorMode) {
+                        CURSOR_DISABLED -> {
+                            onCapturedLongPressEnd()
+                        }
+                        CURSOR_ENABLED -> {
+                            onLongPressEnd()
+                        }
+                    }
+                },
+                onPointerMove = { offset ->
+                    when (cursorMode) {
+                        CURSOR_DISABLED -> {
                             updateMousePointer(false)
-                            pointerPosition = offset
+                            onCapturedMove(offset)
+                        }
+                        CURSOR_ENABLED -> {
+                            pointerPosition = if (controlMode == MouseControlMode.SLIDE) {
+                                updateMousePointer(true)
+                                Offset(
+                                    x = (pointerPosition.x + offset.x * speedFactor).coerceIn(0f, screenWidth),
+                                    y = (pointerPosition.y + offset.y * speedFactor).coerceIn(0f, screenHeight)
+                                )
+                            } else {
+                                updateMousePointer(!hideMouseInClickMode)
+                                //当前手指的绝对坐标
+                                offset
+                            }
                             updatePointerPos(pointerPosition)
                         }
                     }
-                }
-            },
-            onMouseScroll = onMouseScroll,
-            onMouseButton = onMouseButton,
-            isMoveOnlyPointer = isMoveOnlyPointer,
-            onOccupiedPointer = onOccupiedPointer,
-            onReleasePointer = onReleasePointer,
-            requestFocusKey = cursorMode
-        )
+                },
+                onMouseMove = { offset ->
+                    when (cursorMode) {
+                        CURSOR_DISABLED -> {
+                            updateMousePointer(false)
+                            onCapturedMove(offset)
+                        }
+                        CURSOR_ENABLED -> {
+                            if (requestPointerCapture) {
+                                updateMousePointer(true)
+                                pointerPosition = Offset(
+                                    x = (pointerPosition.x + offset.x * speedFactor).coerceIn(0f, screenWidth),
+                                    y = (pointerPosition.y + offset.y * speedFactor).coerceIn(0f, screenHeight)
+                                )
+                                updatePointerPos(pointerPosition)
+                            } else {
+                                //非鼠标抓取模式
+                                updateMousePointer(false)
+                                pointerPosition = offset
+                                updatePointerPos(pointerPosition)
+                            }
+                        }
+                    }
+                },
+                onMouseScroll = onMouseScroll,
+                onMouseButton = onMouseButton,
+                isMoveOnlyPointer = isMoveOnlyPointer,
+                onOccupiedPointer = onOccupiedPointer,
+                onReleasePointer = onReleasePointer,
+                requestFocusKey = cursorMode
+            )
+        }
     }
 }

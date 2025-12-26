@@ -514,6 +514,14 @@ fun GameScreen(
         eventViewModel = eventViewModel,
         getUserName = getAccountName
     )
+    
+    // Enumerate and register all connected controllers when game starts (in native mode)
+    // This ensures controllers are registered BEFORE Minecraft queries for joystick names
+    LaunchedEffect(gameHandler) {
+        if (AllSettings.gamepadNativeMode.getValue()) {
+            gamepadViewModel.enumerateAndRegisterControllers()
+        }
+    }
 
     SendKeycodeOperation(
         operation = viewModel.sendKeycodeState,
@@ -566,6 +574,7 @@ fun GameScreen(
 
         if (!viewModel.isEditingLayout) {
             if (AllSettings.gamepadControl.state && gamepadViewModel.gamepadEngaged) {
+<<<<<<< HEAD
                 //手柄事件监听
                 GamepadKeyListener(
                     gamepadViewModel = gamepadViewModel,
@@ -588,6 +597,35 @@ fun GameScreen(
                         viewModel.onKeyEvent(event, pressed)
                     }
                 )
+=======
+                // Only use keyboard emulation listeners when NOT in native gamepad mode
+                val isNativeMode = AllSettings.gamepadNativeMode.state
+                
+                if (!isNativeMode) {
+                    //手柄事件监听
+                    GamepadKeyListener(
+                        gamepadViewModel = gamepadViewModel,
+                        isGrabbing = ZLBridgeStates.cursorMode == CURSOR_DISABLED,
+                        onKeyEvent = { events, pressed ->
+                            events.forEach { event ->
+                                viewModel.onKeyEvent(event, pressed)
+                            }
+                        },
+                        onAction = {
+                            viewModel.switchControlLayer(HideLayerWhen.WhenGamepad)
+                        }
+                    )
+
+                    //手柄摇杆控制移动事件监听
+                    GamepadStickMovementListener(
+                        gamepadViewModel = gamepadViewModel,
+                        isGrabbing = ZLBridgeStates.cursorMode == CURSOR_DISABLED,
+                        onKeyEvent = { event, pressed ->
+                            viewModel.onKeyEvent(event, pressed)
+                        }
+                    )
+                }
+>>>>>>> 4a3ca462 (Add physical gamepad support for zalith launcher 2 - enabled by an option in the Gamepad settings called 'Native Controller Mode')
             }
 
             //控制布局层
@@ -677,6 +715,7 @@ fun GameScreen(
 
             if (AllSettings.gamepadControl.state) {
                 //手柄事件捕获层
+                android.util.Log.d("GAMEPAD_INIT", "SimpleGamepadCapture initialized, native mode: ${AllSettings.gamepadNativeMode.state}")
                 SimpleGamepadCapture(
                     gamepadViewModel = gamepadViewModel
                 )

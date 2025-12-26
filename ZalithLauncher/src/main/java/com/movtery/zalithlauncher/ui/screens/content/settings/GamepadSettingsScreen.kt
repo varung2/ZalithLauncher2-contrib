@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowRight
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -59,8 +60,10 @@ import com.movtery.zalithlauncher.setting.unit.floatRange
 import com.movtery.zalithlauncher.ui.base.BaseScreen
 import com.movtery.zalithlauncher.ui.components.AnimatedLazyColumn
 import com.movtery.zalithlauncher.ui.components.CheckChip
+import com.movtery.zalithlauncher.ui.components.InfoCard
 import com.movtery.zalithlauncher.ui.components.LittleTextLabel
 import com.movtery.zalithlauncher.ui.control.GamepadBindingKeyboard
+import com.movtery.zalithlauncher.ui.control.gamepad.GamepadControlMode
 import com.movtery.zalithlauncher.ui.control.gamepad.GamepadMap
 import com.movtery.zalithlauncher.ui.control.gamepad.JoystickMode
 import com.movtery.zalithlauncher.ui.control.gamepad.getNameByGamepadEvent
@@ -158,7 +161,42 @@ fun GamepadSettingsScreen(
                         summary = stringResource(R.string.settings_gamepad_summary)
                     )
 
+<<<<<<< HEAD
                     IntSliderSettingsCard(
+=======
+                    // Native Controller Mode Toggle
+                    SwitchSettingsLayout(
+                        modifier = Modifier.fillMaxWidth(),
+                        unit = AllSettings.gamepadNativeMode,
+                        title = stringResource(R.string.settings_gamepad_native_mode_title),
+                        summary = stringResource(R.string.settings_gamepad_native_mode_summary),
+                        enabled = AllSettings.gamepadControl.state,
+                        onCheckedChange = { enabled: Boolean ->
+                            viewModel.applyControlMode(
+                                if (enabled) GamepadControlMode.NATIVE_GAMEPAD 
+                                else GamepadControlMode.KEYBOARD_EMULATION
+                            )
+                        }
+                    )
+
+                    // Warning when native mode is enabled
+                    if (AllSettings.gamepadNativeMode.state && AllSettings.gamepadControl.state) {
+                        InfoCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            text = stringResource(R.string.settings_gamepad_native_mode_warning),
+                            icon = Icons.Outlined.Info,
+                            backgroundColor = MaterialTheme.colorScheme.tertiaryContainer
+                        )
+                    }
+
+                    // Keyboard emulation settings (greyed out in native mode)
+                    val isNativeMode = AllSettings.gamepadNativeMode.state
+                    val emulationSettingsEnabled = AllSettings.gamepadControl.state && !isNativeMode
+
+                    SliderSettingsLayout(
+>>>>>>> 4a3ca462 (Add physical gamepad support for zalith launcher 2 - enabled by an option in the Gamepad settings called 'Native Controller Mode')
                         modifier = Modifier.fillMaxWidth(),
                         position = CardPosition.Middle,
                         unit = AllSettings.gamepadDeadZoneScale,
@@ -166,7 +204,7 @@ fun GamepadSettingsScreen(
                         summary = stringResource(R.string.settings_gamepad_deadzone_summary),
                         valueRange = AllSettings.gamepadDeadZoneScale.floatRange,
                         suffix = "%",
-                        enabled = AllSettings.gamepadControl.state,
+                        enabled = emulationSettingsEnabled,
                         fineTuningControl = true
                     )
 
@@ -178,7 +216,7 @@ fun GamepadSettingsScreen(
                         summary = stringResource(R.string.settings_gamepad_cursor_sensitivity_summary),
                         valueRange = AllSettings.gamepadCursorSensitivity.floatRange,
                         suffix = "%",
-                        enabled = AllSettings.gamepadControl.state,
+                        enabled = emulationSettingsEnabled,
                         fineTuningControl = true
                     )
 
@@ -190,7 +228,7 @@ fun GamepadSettingsScreen(
                         summary = stringResource(R.string.settings_gamepad_camera_sensitivity_summary),
                         valueRange = AllSettings.gamepadCameraSensitivity.floatRange,
                         suffix = "%",
-                        enabled = AllSettings.gamepadControl.state,
+                        enabled = emulationSettingsEnabled,
                         fineTuningControl = true
                     )
 
@@ -211,17 +249,21 @@ fun GamepadSettingsScreen(
                                 style = MaterialTheme.typography.labelSmall
                             )
                         },
-                        enabled = AllSettings.gamepadControl.state
+                        enabled = emulationSettingsEnabled
                     )
                 }
             }
+
+            // Button mapping section (greyed out in native mode)
+            val buttonMappingEnabled = !AllSettings.gamepadNativeMode.state
 
             animatedItem(scope) { yOffset ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
-                        .offset { IntOffset(x = 0, y = yOffset.roundToPx()) },
+                        .offset { IntOffset(x = 0, y = yOffset.roundToPx()) }
+                        .alpha(if (buttonMappingEnabled) 1f else 0.5f),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     //游戏内
@@ -231,8 +273,9 @@ fun GamepadSettingsScreen(
                             Text(text = stringResource(R.string.settings_gamepad_mapping_in_game))
                         },
                         onClick = {
-                            editKeyInGame = true
-                        }
+                            if (buttonMappingEnabled) editKeyInGame = true
+                        },
+                        enabled = buttonMappingEnabled
                     )
 
                     //菜单内
@@ -242,8 +285,9 @@ fun GamepadSettingsScreen(
                             Text(text = stringResource(R.string.settings_gamepad_mapping_in_menu))
                         },
                         onClick = {
-                            editKeyInGame = false
-                        }
+                            if (buttonMappingEnabled) editKeyInGame = false
+                        },
+                        enabled = buttonMappingEnabled
                     )
                 }
             }
@@ -253,13 +297,22 @@ fun GamepadSettingsScreen(
                 items = GamepadMap.entries,
                 key = { it.identifier }
             ) { _, item, yOffset ->
+<<<<<<< HEAD
                 SettingsCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .offset { IntOffset(x = 0, y = yOffset.roundToPx()) },
                     position = CardPosition.Single,
+=======
+                SettingsBackground(
+                    modifier = Modifier
+                        .offset { IntOffset(x = 0, y = yOffset.roundToPx()) }
+                        .alpha(if (buttonMappingEnabled) 1f else 0.5f),
+>>>>>>> 4a3ca462 (Add physical gamepad support for zalith launcher 2 - enabled by an option in the Gamepad settings called 'Native Controller Mode')
                     onClick = {
-                        operation = BindKeyOperation.OnBind(item)
+                        if (buttonMappingEnabled) {
+                            operation = BindKeyOperation.OnBind(item)
+                        }
                     }
                 ) {
                     Row(

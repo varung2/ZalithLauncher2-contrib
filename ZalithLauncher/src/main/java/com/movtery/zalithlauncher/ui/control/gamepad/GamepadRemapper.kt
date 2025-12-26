@@ -79,11 +79,33 @@ data class GamepadRemapper(
      * 注意：如果值没有变化，处理器不会被调用
      *
      * @param event 当前的 MotionEvent
+     * @param deviceId Device ID for native mode
      * @return 输入是否被处理
      */
-    fun handleMotionEventInput(event: MotionEvent, gamepadViewModel: GamepadViewModel): Boolean {
+    fun handleMotionEventInput(event: MotionEvent, gamepadViewModel: GamepadViewModel, deviceId: String = ""): Boolean {
         if (!event.isJoystickMoving()) return false
 
+        if (gamepadViewModel.controlMode == com.movtery.zalithlauncher.ui.control.gamepad.GamepadControlMode.NATIVE_GAMEPAD) {
+            // Native mode: send all axes directly
+            val axes = listOf(
+                MotionEvent.AXIS_X to GamepadRemap.MotionX.code,
+                MotionEvent.AXIS_Y to GamepadRemap.MotionY.code,
+                MotionEvent.AXIS_Z to GamepadRemap.MotionZ.code,
+                MotionEvent.AXIS_RZ to GamepadRemap.MotionRZ.code,
+                MotionEvent.AXIS_LTRIGGER to GamepadRemap.MotionLeftTrigger.code,
+                MotionEvent.AXIS_RTRIGGER to GamepadRemap.MotionRightTrigger.code,
+                MotionEvent.AXIS_HAT_X to GamepadRemap.MotionHatX.code,
+                MotionEvent.AXIS_HAT_Y to GamepadRemap.MotionHatY.code
+            )
+            
+            axes.forEach { (androidAxis, remappedAxis) ->
+                val value = getRemappedValue(androidAxis, event)
+                gamepadViewModel.updateAxisNative(deviceId, remappedAxis, value)
+            }
+            return true
+        }
+
+        // Keyboard emulation mode (existing code)
         handleMotionIfDifferent(MotionEvent.AXIS_HAT_X, getRemappedValue(MotionEvent.AXIS_HAT_X, event), gamepadViewModel)
         handleMotionIfDifferent(MotionEvent.AXIS_HAT_Y, getRemappedValue(MotionEvent.AXIS_HAT_Y, event), gamepadViewModel)
         handleMotionIfDifferent(MotionEvent.AXIS_RTRIGGER, getRemappedValue(MotionEvent.AXIS_RTRIGGER, event), gamepadViewModel)
@@ -98,11 +120,13 @@ data class GamepadRemapper(
      * 如果事件是有效的手柄按键事件，则调用 [GamepadViewModel] 发送事件
      *
      * @param event 当前的 KeyEvent
+     * @param deviceId Device ID for native mode
      * @return 输入是否被处理
      */
     fun handleKeyEventInput(
         event: KeyEvent,
-        gamepadViewModel: GamepadViewModel
+        gamepadViewModel: GamepadViewModel,
+        deviceId: String = ""
     ): Boolean {
         if (!event.isGamepadKeyEvent()) return false
         if (event.keyCode == KeyEvent.KEYCODE_UNKNOWN) return false
@@ -110,6 +134,20 @@ data class GamepadRemapper(
 
         val mappedSource = getRemappedSource(event)
         val currentValue = getRemappedValue(mappedSource, event)
+        
+        if (gamepadViewModel.controlMode == com.movtery.zalithlauncher.ui.control.gamepad.GamepadControlMode.NATIVE_GAMEPAD) {
+            // Native mode: send directly to CallbackBridge
+            currentValue?.let { value ->
+                gamepadViewModel.updateButtonNative(
+                    deviceId = deviceId,
+                    button = mappedSource,
+                    pressed = value > 0f
+                )
+            }
+            return true
+        }
+        
+        // Keyboard emulation mode (existing code)
         val lastValue = currentKeyValues[mappedSource]
 
         if (lastValue == null || currentValue != lastValue) {

@@ -79,41 +79,95 @@ fun SimpleGamepadCapture(
     fun isBinding() = remapperViewModel.uiOperation != GamepadRemapOperation.None
 
     DisposableEffect(view, gamepadViewModel, isBinding) {
+        // Track which devices have been registered to avoid redundant calls
+        val registeredDevices = mutableSetOf<String>()
+        
         val motionListener = View.OnGenericMotionListener { _, event ->
+            // android.util.Log.d("GAMEPAD_RAW", "Motion event received: action=${event.action}, source=${event.source}")
+            
             if (isBinding()) {
                 remapperViewModel.sendEvent(
                     GamepadRemapperViewModel.Event.Axis(event)
                 )
                 true
             } else if (event.isGamepadEvent() && event.action == MotionEvent.ACTION_MOVE) {
+                // android.util.Log.d("GAMEPAD_RAW", "Gamepad motion detected! deviceName=${event.getDeviceName()}")
                 val deviceName = event.getDeviceName()
+                
+                // Register device name once (only in native mode, only if not already registered)
+                // This serves as a fallback for controllers connected AFTER game starts (i.e. hot-plugged)
+                if (AllSettings.gamepadNativeMode.getValue() && !registeredDevices.contains(deviceName)) {
+                    event.device?.name?.let { realDeviceName ->
+                        gamepadViewModel.registerDeviceName(deviceName, realDeviceName)
+                        registeredDevices.add(deviceName)
+                        android.util.Log.d("GAMEPAD_RAW", "Fallback registration: deviceName=$deviceName -> $realDeviceName")
+                    }
+                }
+                
                 val remapper = remapperViewModel.findMapping(deviceName)
-                if (remapper == null) {
-                    remapperViewModel.startRemapperUI(deviceName)
+                
+                // In native mode, handle input directly even without remapper
+                if (AllSettings.gamepadNativeMode.getValue()) {
+                    // android.util.Log.d("GAMEPAD_RAW", "Native mode: handling motion")
+                    // No remapper needed in native mode - handle directly
+                    handleNativeMotionInput(event, gamepadViewModel, deviceName)
                 } else {
-                    remapper.handleMotionEventInput(event, gamepadViewModel)
+                    if (remapper == null) {
+                    // Keyboard emulation mode needs remapper - prompt for it
+                        remapperViewModel.startRemapperUI(deviceName)
+                    } else {
+                        // Keyboard emulation with remapper
+                        remapper.handleMotionEventInput(event, gamepadViewModel, deviceName)
+                    }
                 }
                 true
             } else false
         }
 
         val keyListener = View.OnKeyListener { _, keyCode, keyEvent ->
+            // android.util.Log.d("GAMEPAD_RAW", "Key event received: keyCode=$keyCode, action=${keyEvent.action}, device=${keyEvent.device?.name}")
+            
             if (keyEvent.isGamepadKeyEvent()) {
+                // android.util.Log.d("GAMEPAD_RAW", "Gamepad key detected! deviceName=${keyEvent.getDeviceName()}")
                 if (isBinding()) {
                     remapperViewModel.sendEvent(
                         GamepadRemapperViewModel.Event.Button(keyCode, keyEvent)
                     )
                 } else {
                     val deviceName = keyEvent.getDeviceName()
+                    
+                    // Register device name once (only in native mode, only if not already registered)
+                    // This serves as a fallback for controllers connected AFTER game starts (i.e. hot-plugged)
+                    if (AllSettings.gamepadNativeMode.getValue() && !registeredDevices.contains(deviceName)) {
+                        keyEvent.device?.name?.let { realDeviceName ->
+                            gamepadViewModel.registerDeviceName(deviceName, realDeviceName)
+                            registeredDevices.add(deviceName)
+                            android.util.Log.d("GAMEPAD_RAW", "Fallback registration: deviceName=$deviceName -> $realDeviceName")
+                        }
+                    }
+                    
                     val remapper = remapperViewModel.findMapping(deviceName)
-                    if (remapper == null) {
-                        remapperViewModel.startRemapperUI(deviceName)
+                    
+                    // In native mode, handle input directly even without remapper
+                    if (AllSettings.gamepadNativeMode.getValue()) {
+                        // android.util.Log.d("GAMEPAD_RAW", "Native mode: handling button keyCode=$keyCode")
+                        // No remapper needed in native mode - handle directly
+                        handleNativeKeyInput(keyEvent, gamepadViewModel, deviceName)
                     } else {
-                        remapper.handleKeyEventInput(keyEvent, gamepadViewModel)
+                        if (remapper == null) {
+                            // Keyboard emulation mode needs remapper - prompt for it
+                            remapperViewModel.startRemapperUI(deviceName)
+                        } else {
+                            // Keyboard emulation with remapper
+                            remapper.handleKeyEventInput(keyEvent, gamepadViewModel, deviceName)
+                        }
                     }
                 }
                 true
-            } else false
+            } else {
+                // android.util.Log.d("GAMEPAD_RAW", "Not a gamepad key event")
+                false
+            }
         }
 
         view.setOnGenericMotionListener(motionListener)
@@ -132,6 +186,13 @@ fun SimpleGamepadCapture(
                     ensureActive()
                     val binding = withContext(Dispatchers.Main) { isBinding() }
                     if (binding) break
+
+                    // Skip joystick polling in native mode - raw events are handled directly
+                    val isNativeMode = AllSettings.gamepadNativeMode.getValue()
+                    if (isNativeMode) {
+                        delay(100) // Just keep the loop alive for activity checking
+                        continue
+                    }
 
                     //检查手柄活动状态
                     val pollLevel = gamepadViewModel.checkGamepadActive()
@@ -401,8 +462,16 @@ fun MotionEvent.isJoystickMoving(): Boolean {
 fun KeyEvent.isGamepadKeyEvent(): Boolean {
     val isGamepad = isFromSource(InputDevice.SOURCE_GAMEPAD) ||
             (device != null && device.supportsSource(InputDevice.SOURCE_GAMEPAD))
+    
+    val isDpad = isDpadKeyEvent()
+    
+    val result = isGamepad || isDpad
+    
+    // if (keyCode in 96..110) { // BUTTON_A to BUTTON_MODE range
+        android.util.Log.d("GAMEPAD_CHECK", "isGamepadKeyEvent: keyCode=$keyCode, isGamepad=$isGamepad, isDpad=$isDpad, result=$result, source=${source}, device=${device?.name}")
+    // }
 
-    return isGamepad || isDpadKeyEvent()
+    return result
 }
 
 private fun KeyEvent.isDpadKeyEvent(): Boolean {
@@ -420,4 +489,96 @@ fun MotionEvent.findTriggeredAxis(): Int? {
     return supportedAxis.find { axis ->
         getAxisValue(axis) >= 0.85
     }
+}
+
+/**
+ * Handle native gamepad motion input directly (without remapper)
+ */
+private fun handleNativeMotionInput(
+    event: MotionEvent,
+    gamepadViewModel: GamepadViewModel,
+    deviceId: String
+) {
+    android.util.Log.d("GAMEPAD_NATIVE", "handleNativeMotionInput called, deviceId=$deviceId")
+    
+    if (!event.isJoystickMoving()) {
+        android.util.Log.d("GAMEPAD_NATIVE", "Not a joystick moving event, returning")
+        return
+    }
+    
+    android.util.Log.d("GAMEPAD_NATIVE", "Processing joystick axes")
+    
+    // Send all axes directly to native gamepad
+    val axes = listOf(
+        MotionEvent.AXIS_X to GamepadRemap.MotionX.code,
+        MotionEvent.AXIS_Y to GamepadRemap.MotionY.code,
+        MotionEvent.AXIS_Z to GamepadRemap.MotionZ.code,
+        MotionEvent.AXIS_RZ to GamepadRemap.MotionRZ.code,
+        MotionEvent.AXIS_LTRIGGER to GamepadRemap.MotionLeftTrigger.code,
+        MotionEvent.AXIS_RTRIGGER to GamepadRemap.MotionRightTrigger.code,
+        MotionEvent.AXIS_HAT_X to GamepadRemap.MotionHatX.code,
+        MotionEvent.AXIS_HAT_Y to GamepadRemap.MotionHatY.code
+    )
+    
+    axes.forEach { (androidAxis, standardAxis) ->
+        val value = event.getAxisValue(androidAxis)
+        if (kotlin.math.abs(value) > 0.01f) {
+            android.util.Log.d("GAMEPAD_NATIVE", "Calling updateAxisNative: axis=$standardAxis, value=$value")
+        }
+        gamepadViewModel.updateAxisNative(deviceId, standardAxis, value)
+    }
+}
+
+/**
+ * Handle native gamepad key input directly (without remapper)
+ */
+private fun handleNativeKeyInput(
+    event: KeyEvent,
+    gamepadViewModel: GamepadViewModel,
+    deviceId: String
+) {
+    android.util.Log.d("GAMEPAD_NATIVE", "handleNativeKeyInput called, keyCode=${event.keyCode}, deviceId=$deviceId")
+    
+    if (!event.isGamepadKeyEvent()) {
+        android.util.Log.d("GAMEPAD_NATIVE", "Not a gamepad key event, returning")
+        return
+    }
+    if (event.keyCode == KeyEvent.KEYCODE_UNKNOWN) {
+        android.util.Log.d("GAMEPAD_NATIVE", "Unknown keycode, returning")
+        return
+    }
+    if (event.repeatCount > 0) {
+        android.util.Log.d("GAMEPAD_NATIVE", "Repeat event, returning")
+        return
+    }
+    
+    // Map standard Android keycodes directly to button codes
+    val buttonCode = when (event.keyCode) {
+        KeyEvent.KEYCODE_BUTTON_A -> GamepadRemap.ButtonA.code
+        KeyEvent.KEYCODE_BUTTON_B -> GamepadRemap.ButtonB.code
+        KeyEvent.KEYCODE_BUTTON_X -> GamepadRemap.ButtonX.code
+        KeyEvent.KEYCODE_BUTTON_Y -> GamepadRemap.ButtonY.code
+        KeyEvent.KEYCODE_BUTTON_L1 -> GamepadRemap.ButtonL1.code
+        KeyEvent.KEYCODE_BUTTON_R1 -> GamepadRemap.ButtonR1.code
+        KeyEvent.KEYCODE_BUTTON_L2 -> GamepadRemap.MotionLeftTrigger.code
+        KeyEvent.KEYCODE_BUTTON_R2 -> GamepadRemap.MotionRightTrigger.code
+        KeyEvent.KEYCODE_BUTTON_THUMBL -> GamepadRemap.ButtonLeftStick.code
+        KeyEvent.KEYCODE_BUTTON_THUMBR -> GamepadRemap.ButtonRightStick.code
+        KeyEvent.KEYCODE_BUTTON_START -> GamepadRemap.ButtonStart.code
+        KeyEvent.KEYCODE_BUTTON_SELECT -> GamepadRemap.ButtonSelect.code
+        // D-pad buttons (may come as key events on some controllers) - passthrough
+        KeyEvent.KEYCODE_DPAD_UP -> KeyEvent.KEYCODE_DPAD_UP
+        KeyEvent.KEYCODE_DPAD_DOWN -> KeyEvent.KEYCODE_DPAD_DOWN
+        KeyEvent.KEYCODE_DPAD_LEFT -> KeyEvent.KEYCODE_DPAD_LEFT
+        KeyEvent.KEYCODE_DPAD_RIGHT -> KeyEvent.KEYCODE_DPAD_RIGHT
+        else -> {
+            android.util.Log.d("GAMEPAD_NATIVE", "Unmapped keyCode=${event.keyCode}, returning")
+            return
+        }
+    }
+    
+    android.util.Log.d("GAMEPAD_NATIVE", "Calling updateButtonNative: buttonCode=$buttonCode, pressed=${event.action == KeyEvent.ACTION_DOWN}")
+    
+    val pressed = event.action == KeyEvent.ACTION_DOWN
+    gamepadViewModel.updateButtonNative(deviceId, buttonCode, pressed)
 }

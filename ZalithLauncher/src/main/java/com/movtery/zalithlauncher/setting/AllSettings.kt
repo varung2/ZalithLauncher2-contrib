@@ -227,6 +227,13 @@ object AllSettings : SettingsRegistry() {
     val gamepadControl = boolSetting("gamepadControl", true)
 
     /**
+     * Gamepad native mode (experimental)
+     * Defaults to false (off) to ensure backward compatibility
+     * Only Minecraft 1.12+ supports native gamepad input
+     */
+    val gamepadNativeMode = boolSetting("gamepadNativeMode", false)
+
+    /**
      * 摇杆死区缩放
      */
     val gamepadDeadZoneScale = intSetting("gamepadDeadZoneScale", 100, 50..200)

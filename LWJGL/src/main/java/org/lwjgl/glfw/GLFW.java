@@ -29,6 +29,18 @@ public class GLFW
 {
     static FloatBuffer joystickData = (FloatBuffer)FloatBuffer.allocate(8).flip();
     static ByteBuffer buttonData = (ByteBuffer)ByteBuffer.allocate(8).flip();
+    
+    // Native gamepad state storage (for jid 0-15)
+    private static final int MAX_JOYSTICKS = 16;
+    private static final GLFWGamepadState[] gamepadStates = new GLFWGamepadState[MAX_JOYSTICKS];
+    private static final boolean[] gamepadPresent = new boolean[MAX_JOYSTICKS];
+    
+    static {
+        // Initialize gamepad states
+        for (int i = 0; i < MAX_JOYSTICKS; i++) {
+            gamepadStates[i] = GLFWGamepadState.create();
+        }
+    }
     /** The major version number of the GLFW library. This is incremented when the API is changed in non-compatible ways. */
     public static final int GLFW_VERSION_MAJOR = 3;
 
@@ -1239,15 +1251,44 @@ public class GLFW
     public static void glfwRequestWindowAttention(@NativeType("GLFWwindow *") long window) {
     }
 
+    // Native methods to query joystick registry
+    private static native String nativeGetJoystickName(int jid);
+    private static native boolean nativeJoystickPresent(int jid);
+
     public static boolean glfwJoystickPresent(int jid) {
+        // First check native registry for physical controllers
+        try {
+            if (nativeJoystickPresent(jid)) {
+                return true;
+            }
+        } catch (UnsatisfiedLinkError e) {
+            System.err.println("[GLFW] WARNING: Native joystick registry not available: " + e.getMessage());
+        }
+        // Fallback: jid 0 is the legacy AIC event bus controller
         if(jid == 0) {
             return true;
-        }else return false;
+        }
+        return false;
     }
+    
     public static String glfwGetJoystickName(int jid) {
+        // First try to get name from native registry (physical controllers)
+        try {
+            String nativeName = nativeGetJoystickName(jid);
+            if (nativeName != null && !nativeName.isEmpty()) {
+                System.out.println("[GLFW] Got name from native registry: jid=" + jid + ", name=" + nativeName);
+                return nativeName;
+            }
+        } catch (UnsatisfiedLinkError e) {
+            System.err.println("[GLFW] WARNING: Native joystick registry not available: " + e.getMessage());
+        }
+        // Fallback: jid 0 is the legacy AIC event bus controller
         if(jid == 0) {
+            System.out.println("[GLFW] Using fallback name for jid=0: AIC event bus controller");
             return "AIC event bus controller";
-        }else return null;
+        }
+        System.out.println("[GLFW] No name found for jid=" + jid + ", returning null");
+        return null;
     }
     public static FloatBuffer glfwGetJoystickAxes(int jid) {
         if(jid == 0) {
@@ -1263,8 +1304,12 @@ public class GLFW
         return null;
     }
     public static boolean glfwJoystickIsGamepad(int jid) {
-        if(jid == 0) return true;
-        else return false;
+        if(jid == 0) return true;  // Legacy AIC controller
+        // Check if this is a registered native gamepad
+        if (jid > 0 && jid < MAX_JOYSTICKS) {
+            return gamepadPresent[jid];
+        }
+        return false;
     }
     public static String glfwGetJoystickGUID(int jid) {
         if(jid == 0) return "aio0";
@@ -1280,10 +1325,84 @@ public class GLFW
         return false;
     }
     public static String glfwGetGamepadName(int jid) {
-        return null;
+        return glfwGetJoystickName(jid);
     }
+    
     public static boolean glfwGetGamepadState(int jid, GLFWGamepadState state) {
+        if (jid < 0 || jid >= MAX_JOYSTICKS) {
+            return false;
+        }
+        
+        // Check if this joystick is present
+        if (!glfwJoystickPresent(jid)) {
+            return false;
+        }
+        
+        // Check if it's a gamepad
+        if (!glfwJoystickIsGamepad(jid)) {
+            return false;
+        }
+        
+        // Copy current gamepad state to the provided state object
+        GLFWGamepadState currentState = gamepadStates[jid];
+        if (currentState != null && state != null) {
+            // Copy buttons (15 buttons)
+            for (int i = 0; i < 15; i++) {
+                state.buttons().put(i, currentState.buttons(i));
+            }
+            
+            // Copy axes (6 axes)
+            for (int i = 0; i < 6; i++) {
+                state.axes().put(i, currentState.axes(i));
+            }
+            
+            return true;
+        }
+        
         return false;
+    }
+    
+    /**
+     * Internal method to update gamepad button state from native events
+     */
+    public static void internalUpdateGamepadButton(int jid, int button, boolean pressed) {
+        if (jid < 0 || jid >= MAX_JOYSTICKS) {
+            return;
+        }
+        
+        GLFWGamepadState state = gamepadStates[jid];
+        if (state != null && button >= 0 && button < 15) {
+            state.buttons().put(button, pressed ? (byte)GLFW_PRESS : (byte)GLFW_RELEASE);
+            System.out.println("[GLFW] Updated button state: jid=" + jid + ", button=" + button + ", pressed=" + pressed);
+        }
+    }
+    
+    /**
+     * Internal method to update gamepad axis state from native events
+     */
+    public static void internalUpdateGamepadAxis(int jid, int axis, float value) {
+        if (jid < 0 || jid >= MAX_JOYSTICKS) {
+            return;
+        }
+        
+        GLFWGamepadState state = gamepadStates[jid];
+        if (state != null && axis >= 0 && axis < 6) {
+            state.axes().put(axis, value);
+            if (Math.abs(value) > 0.01f) {
+                System.out.println("[GLFW] Updated axis state: jid=" + jid + ", axis=" + axis + ", value=" + value);
+            }
+        }
+    }
+    
+    /**
+     * Internal method to mark gamepad as present/absent
+     */
+    public static void internalSetGamepadPresent(int jid, boolean present) {
+        if (jid < 0 || jid >= MAX_JOYSTICKS) {
+            return;
+        }
+        gamepadPresent[jid] = present;
+        System.out.println("[GLFW] Gamepad presence changed: jid=" + jid + ", present=" + present);
     }
 
     /** Array version of: {@link #glfwGetVersion GetVersion} */

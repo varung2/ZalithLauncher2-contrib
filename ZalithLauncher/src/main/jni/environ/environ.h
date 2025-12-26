@@ -29,6 +29,8 @@ typedef void GLFW_invoke_Key_func(void* window, int key, int scancode, int actio
 typedef void GLFW_invoke_MouseButton_func(void* window, int button, int action, int mods);
 typedef void GLFW_invoke_Scroll_func(void* window, double xoffset, double yoffset);
 typedef void GLFW_invoke_WindowSize_func(void* window, int width, int height);
+typedef void GLFW_invoke_JoystickButton_func(int jid, int button, int action);
+typedef void GLFW_invoke_JoystickAxis_func(int jid, int axis, float value);
 
 struct pojav_environ_s {
     struct ANativeWindow* pojavWindow;
@@ -47,6 +49,9 @@ struct pojav_environ_s {
     jmethodID method_glftSetWindowAttrib;
     jmethodID method_internalWindowSizeChanged;
     jmethodID method_PutFpsValue;
+    jmethodID method_internalUpdateGamepadButton;
+    jmethodID method_internalUpdateGamepadAxis;
+    jmethodID method_internalSetGamepadPresent;
     jclass class_ZLInvoker; // ZL Invoker
     jclass bridgeClazz;
     jclass vmGlfwClass;
@@ -71,6 +76,8 @@ struct pojav_environ_s {
     ADD_CALLBACK_WWIN(MouseButton);
     ADD_CALLBACK_WWIN(Scroll);
     ADD_CALLBACK_WWIN(WindowSize);
+    ADD_CALLBACK_WWIN(JoystickButton);
+    ADD_CALLBACK_WWIN(JoystickAxis);
 
 #undef ADD_CALLBACK_WWIN
 };
